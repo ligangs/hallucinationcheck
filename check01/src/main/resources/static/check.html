@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>幻觉检测工具</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.8.1/github-markdown.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.0/styles/github.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background-color: #f5f7fa;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            padding: 12px;
+        }
+        .chat-wrap {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .chat-title {
+            text-align: center;
+            font-size: 20px;
+            color: #222;
+            margin-bottom: 16px;
+        }
+        .chat-box {
+            min-height: 500px;
+            max-height: 70vh;
+            overflow-y: auto;
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+            margin-bottom: 12px;
+        }
+        .msg-item {
+            margin-bottom: 16px;
+        }
+        .user-msg {
+            display: flex;
+            justify-content: flex-end;
+        }
+        .ai-msg {
+            display: flex;
+            justify-content: flex-start;
+        }
+        .msg-bubble-user {
+            max-width: 75%;
+            background-color: #1677ff;
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 12px 12px 2px 12px;
+            white-space: pre‑wrap;
+            word‑break: break‑word;
+        }
+        .msg-bubble-ai {
+            max-width: 75%;
+            background-color: #f7f8fa;
+            color: #a4a4a4;
+            border-radius: 12px 12px 12px 2px;
+            padding:14px 18px;
+            word‑break: break‑word;
+        }
+        .msg-bubble-ai .markdown-body {
+            background: transparent !important;
+            padding:0 !important;
+        }
+        .loading-text {
+            color:#888;
+        }
+        .input-area {
+            display: flex;
+            gap:8px;
+        }
+        #queryInput {
+            flex: 1;
+            padding:12px 14px;
+            border:1px solid #dcdfe6;
+            border-radius: 8px;
+            font-size:15px;
+            outline: none;
+        }
+        #queryInput:focus {
+            border-color:#1677ff;
+        }
+        button {
+            padding: 12px 18px;
+            background-color:#1677ff;
+            color:#fff;
+            border:none;
+            border-radius:8px;
+            cursor:pointer;
+            font-size:15px;
+            white‑space: nowrap;
+        }
+        button:active {
+            background-color:#0e5cc9;
+        }
+        button:disabled {
+            background:#94bfff;
+            cursor:not‑allowed;
+        }
+
+        @media (max‑width: 768px) {
+            body {
+                padding: 8px;
+            }
+            .chat-title {
+                font‑size: 18px;
+                margin‑bottom: 12px;
+            }
+            .chat-box {
+                padding: 12px;
+                min‑height: 420px;
+            }
+            .msg‑bubble‑user,
+            .msg‑bubble‑ai {
+                max‑width: 88%;
+            }
+            .input‑area {
+                gap: 6px;
+            }
+            #queryInput {
+                padding: 10px 12px;
+                font‑size: 14px;
+            }
+            button {
+                padding: 10px 14px;
+                font‑size: 14px;
+            }
+        }
+        @media (max‑width: 480px) {
+            .msg‑bubble‑user,
+            .msg‑bubble‑ai {
+                max‑width: 92%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="chat-wrap">
+    <div class="chat-title">幻觉检测工具</div>
+    <div class="chat-box" id="chatBox"></div>
+    <div class="input-area">
+        <input type="text" id="queryInput" placeholder="请输入你的问题..." />
+        <button id="sendBtn" onclick="sendMessage()">发送</button>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked@14.1.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.4/dist/purify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.11.0/lib/core.min.js"></script>
+
+<script>
+    marked.setOptions({
+        gfm: true,
+        breaks: true,
+        highlight: function (code, lang) {
+            if (lang && hljs.getLanguage(lang)) {
+                return hljs.highlight(code, { language: lang }).value;
+            }
+            return hljs.highlightAuto(code).value;
+        }
+    });
+
+    function renderMarkdown(mdText) {
+        const rawHtml = marked.parse(mdText);
+        return DOMPurify.sanitize(rawHtml);
+    }
+
+    function scrollBottom(){
+        const box = document.getElementById("chatBox");
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    // 追加用户消息
+    function appendUserMsg(text) {
+        const box = document.getElementById("chatBox");
+        const div = document.createElement("div");
+        div.className = "msg-item user-msg";
+        div.innerHTML = `<div class="msg-bubble-user">${escapeHtml(text)}</div>`;
+        box.appendChild(div);
+        scrollBottom();
+    }
+
+    async function sendMessage(){
+        const input = document.getElementById("queryInput");
+        const sendBtn = document.getElementById("sendBtn");
+        const msg = input.value.trim();
+        if(!msg) return;
+
+        appendUserMsg(msg);
+        input.value = "";
+        sendBtn.disabled = true;
+
+        // 创建AI消息气泡
+        const box = document.getElementById("chatBox");
+        const aiWrap = document.createElement("div");
+        aiWrap.className = "msg-item ai-msg";
+        aiWrap.innerHTML = `<div class="msg-bubble-ai" id="aiCurrent">思考中...</div>`;
+        box.appendChild(aiWrap);
+        scrollBottom();
+
+        let fullMd = "";
+        const aiDom = aiWrap.querySelector("#aiCurrent");
+        const es = new EventSource(`/qwen/doChatStream?msg=${encodeURIComponent(msg)}`);
+
+        // 流式分片到达：直接追加原始文本，边收边显示
+        es.onmessage = (event) => {
+            fullMd += event.data;
+            aiDom.innerText = fullMd;
+            scrollBottom();
+        };
+
+        es.onerror = () => {
+            es.close();
+            // ✅流全部接收完成，一次性完整渲染markdown，代码块/表格正常
+            aiDom.outerHTML = `<div class="msg-bubble-ai markdown-body">${renderMarkdown(fullMd)}</div>`;
+            sendBtn.disabled = false;
+        };
+    }
+
+    document.getElementById("queryInput").addEventListener("keydown",function(e){
+        if(e.key === "Enter") sendMessage();
+    })
+</script>
+</body>
+</html>

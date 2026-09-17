@@ -1,0 +1,13 @@
+server:
+  port: 8001
+  servlet:
+    encoding:
+      enabled: true
+      force: true
+      charset: UTF-8
+spring:
+  application:
+    name: check01
+  ai:
+    dashscope:
+      api-key: ${AI_DASHSCOPE_API_KEY}

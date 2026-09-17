@@ -112,6 +112,10 @@
             color: #666;
             font-size: 13px;
         }
+        .batch-status.is-error {
+            color: #ff4d4f;
+            font-weight: 600;
+        }
         .result-link {
             color: #1677ff;
             font-size: 13px;
@@ -653,18 +657,24 @@
         btn.innerText = on ? "检测中..." : "批量检测";
     }
 
+    // 批量检测状态文案切换：失败/中断时追加 is-error 类，以醒目红色提示
+    function setBatchStatus(text, isError){
+        const status = document.getElementById("batchStatus");
+        status.innerText = text;
+        status.classList.toggle("is-error", !!isError);
+    }
+
     async function runBatch(){
         if(batchRunning) return;
         batchRunning = true;
         batchFinished = false;
-        const status = document.getElementById("batchStatus");
         setBatchLoading(true);
 
         let streamUrl = "/api/detect/batch/stream";
         const params = [];
         try {
             if (batchUploadFile) {
-                status.innerText = "正在上传待检测数据...";
+                setBatchStatus("正在上传待检测数据...");
                 const form = new FormData();
                 form.append("file", batchUploadFile, batchUploadFile.name);
                 const resp = await fetch("/api/detect/upload", { method: "POST", body: form });
@@ -676,7 +686,7 @@
                 params.push("sampleFile=" + encodeURIComponent(data.storedFile));
             }
             if (batchGtFile) {
-                status.innerText = "正在上传人工标注文件...";
+                setBatchStatus("正在上传人工标注文件...");
                 const gtForm = new FormData();
                 gtForm.append("file", batchGtFile, batchGtFile.name);
                 const gtResp = await fetch("/api/detect/upload/ground-truth", { method: "POST", body: gtForm });
@@ -689,14 +699,14 @@
             }
             if (params.length) {
                 streamUrl += "?" + params.join("&");
-                status.innerText = "文件已就绪，开始检测...";
+                setBatchStatus("文件已就绪，开始检测...");
             } else {
-                status.innerText = "未上传文件，检测默认样本 task4_replies.json...";
+                setBatchStatus("未上传文件，检测默认样本 task4_replies.json...");
             }
         } catch (e) {
             batchRunning = false;
             setBatchLoading(false);
-            status.innerText = "批量检测失败：" + e.message;
+            setBatchStatus("批量检测失败：" + e.message, true);
             return;
         }
 
@@ -710,20 +720,20 @@
                 if (r.is_hallucination === true) verdict = "幻觉";
                 else if (r.is_hallucination === false) verdict = "正常";
                 const percent = data.total ? Math.round(data.completed / data.total * 100) : 0;
-                status.innerText = `进度 ${data.completed}/${data.total}（${percent}%）：${r.id} - ${verdict}`;
+                setBatchStatus(`进度 ${data.completed}/${data.total}（${percent}%）：${r.id} - ${verdict}`);
             } else if (data.type === "done") {
                 batchFinished = true;
                 batchRunning = false;
                 setBatchLoading(false);
-                status.innerText = (data.report && data.report.ground_truth_file)
+                setBatchStatus((data.report && data.report.ground_truth_file)
                     ? "批量检测完成，已对比人工标注计算指标，结果文件已生成"
-                    : "批量检测完成，结果文件已生成";
+                    : "批量检测完成，结果文件已生成");
                 appendBatchSummary(data.report);
             } else if (data.type === "error") {
                 batchFinished = true;
                 batchRunning = false;
                 setBatchLoading(false);
-                status.innerText = "批量检测失败：" + data.message;
+                setBatchStatus("批量检测失败：" + data.message, true);
             }
         };
         es.onerror = () => {
@@ -731,7 +741,7 @@
             batchRunning = false;
             setBatchLoading(false);
             if (!batchFinished) {
-                status.innerText = "批量检测中断：与服务器的连接已关闭";
+                setBatchStatus("批量检测中断：与服务器的连接已关闭", true);
             }
         };
     }

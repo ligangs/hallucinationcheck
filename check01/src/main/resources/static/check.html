@@ -408,19 +408,24 @@
     <div class="chat-title">客服回复幻觉检测</div>
     <div class="batch-bar">
         <button id="batchBtn" onclick="openBatchModal()">批量检测</button>
-        <span class="batch-status" id="batchStatus">点击「批量检测」可上传待检查数据，未上传则检测默认样本 task4_replies.json</span>
+        <span class="batch-status" id="batchStatus">点击「批量检测」可上传待检查数据与人工标注文件，未上传则使用默认样本与基准</span>
         <a class="result-link" href="/api/detect/result/latest">下载报告(.md)</a>
         <input type="file" id="batchFile" accept=".json,application/json" style="display:none" onchange="onBatchFileChange()">
+        <input type="file" id="gtFile" accept=".json,application/json" style="display:none" onchange="onGtFileChange()">
     </div>
 
     <!-- 批量检测弹窗：提醒上传待检查文件，未上传则检测默认文件 -->
     <div class="modal-mask" id="batchModal">
         <div class="modal-card">
             <div class="modal-title">批量检测</div>
-            <div class="modal-desc">请选择待检查的数据文件（JSON 数组，结构同 task4_replies.json）。<br>未选择文件时，将检测默认文件 task4_replies.json。</div>
+            <div class="modal-desc">请选择待检查的数据文件（JSON 数组，结构同 task4_replies.json），未选择时检测默认文件 task4_replies.json。<br>可上传人工标注文件（结构同 task4_ground_truth.json），用于对比大模型判断结果、计算准确率等指标；未选择时使用默认基准 task4_ground_truth.json。</div>
             <div class="modal-file-row">
                 <button type="button" onclick="document.getElementById('batchFile').click()">选择文件</button>
                 <span class="modal-file-name" id="modalFileName">未选择文件</span>
+            </div>
+            <div class="modal-file-row">
+                <button type="button" onclick="document.getElementById('gtFile').click()">选择标注</button>
+                <span class="modal-file-name" id="modalGtName">未选择标注文件</span>
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-ghost" onclick="closeBatchModal()">取消</button>
@@ -583,12 +588,15 @@
     let batchRunning = false;
     let batchFinished = false;
     let batchUploadFile = null;
+    let batchGtFile = null;
 
     // 点击「批量检测」：弹出上传提醒（未上传则检测默认文件）
     function openBatchModal(){
         if (batchRunning) return;
         batchUploadFile = null;
+        batchGtFile = null;
         document.getElementById("batchFile").value = "";
+        document.getElementById("gtFile").value = "";
         updateModalFile();
         document.getElementById("batchModal").classList.add("show");
     }
@@ -597,24 +605,37 @@
         document.getElementById("batchModal").classList.remove("show");
     }
 
-    // 已选择文件时按钮显示「上传并检测」，否则显示「检测默认文件」
+    // 样本/标注文件任一选中时按钮显示「上传并检测」，否则显示「检测默认文件」
     function updateModalFile(){
         const nameDom = document.getElementById("modalFileName");
+        const gtDom = document.getElementById("modalGtName");
         const startBtn = document.getElementById("modalStartBtn");
         if (batchUploadFile) {
             nameDom.innerText = batchUploadFile.name + "（" + (batchUploadFile.size / 1024).toFixed(1) + " KB）";
             nameDom.style.color = "#1677ff";
-            startBtn.innerText = "上传并检测";
         } else {
             nameDom.innerText = "未选择文件";
             nameDom.style.color = "#888";
-            startBtn.innerText = "检测默认文件";
         }
+        if (batchGtFile) {
+            gtDom.innerText = batchGtFile.name + "（" + (batchGtFile.size / 1024).toFixed(1) + " KB）";
+            gtDom.style.color = "#1677ff";
+        } else {
+            gtDom.innerText = "未选择标注文件";
+            gtDom.style.color = "#888";
+        }
+        startBtn.innerText = (batchUploadFile || batchGtFile) ? "上传并检测" : "检测默认文件";
     }
 
     function onBatchFileChange(){
         const input = document.getElementById("batchFile");
         batchUploadFile = (input.files && input.files[0]) || null;
+        updateModalFile();
+    }
+
+    function onGtFileChange(){
+        const input = document.getElementById("gtFile");
+        batchGtFile = (input.files && input.files[0]) || null;
         updateModalFile();
     }
 
@@ -640,6 +661,7 @@
         setBatchLoading(true);
 
         let streamUrl = "/api/detect/batch/stream";
+        const params = [];
         try {
             if (batchUploadFile) {
                 status.innerText = "正在上传待检测数据...";
@@ -651,8 +673,23 @@
                 if (!resp.ok) {
                     throw new Error(data.message || ("上传失败，HTTP " + resp.status));
                 }
-                status.innerText = `已上传 ${data.sampleCount} 条样本，开始检测...`;
-                streamUrl += "?sampleFile=" + encodeURIComponent(data.storedFile);
+                params.push("sampleFile=" + encodeURIComponent(data.storedFile));
+            }
+            if (batchGtFile) {
+                status.innerText = "正在上传人工标注文件...";
+                const gtForm = new FormData();
+                gtForm.append("file", batchGtFile, batchGtFile.name);
+                const gtResp = await fetch("/api/detect/upload/ground-truth", { method: "POST", body: gtForm });
+                let gtData = {};
+                try { gtData = await gtResp.json(); } catch (e) { }
+                if (!gtResp.ok) {
+                    throw new Error(gtData.message || ("标注文件上传失败，HTTP " + gtResp.status));
+                }
+                params.push("groundTruthFile=" + encodeURIComponent(gtData.storedFile));
+            }
+            if (params.length) {
+                streamUrl += "?" + params.join("&");
+                status.innerText = "文件已就绪，开始检测...";
             } else {
                 status.innerText = "未上传文件，检测默认样本 task4_replies.json...";
             }
@@ -678,7 +715,9 @@
                 batchFinished = true;
                 batchRunning = false;
                 setBatchLoading(false);
-                status.innerText = "批量检测完成，结果文件已生成";
+                status.innerText = (data.report && data.report.ground_truth_file)
+                    ? "批量检测完成，已对比人工标注计算指标，结果文件已生成"
+                    : "批量检测完成，结果文件已生成";
                 appendBatchSummary(data.report);
             } else if (data.type === "error") {
                 batchFinished = true;

@@ -111,17 +111,57 @@ public class BatchDetectionService {
         return result;
     }
 
+    /**
+     * 保存并校验前端上传的人工标注（ground truth）文件（结构同 task4_ground_truth.json 的 JSON 数组），
+     * 上传后将用于对比大模型检测结果、计算准确率等评估指标。
+     *
+     * @return 包含 storedFile（保存后的绝对路径）、entryCount、originalName 的结果
+     */
+    public Map<String, Object> storeUploadedGroundTruth(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("上传文件为空，请选择人工标注文件");
+        }
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("读取上传文件失败", e);
+        }
+        List<GroundTruthEntry> entries = parseGroundTruth(bytes, "上传文件 " + file.getOriginalFilename());
+        Path uploadDir = resolveOutputDir(properties.getOutputDir()).resolve("uploads");
+        Path target;
+        try {
+            Files.createDirectories(uploadDir);
+            target = uploadDir.resolve("ground_truth_" + LocalDateTime.now().format(FILE_TIMESTAMP)
+                    + "_" + UUID.randomUUID().toString().substring(0, 8) + ".json");
+            Files.write(target, bytes);
+        } catch (IOException e) {
+            throw new UncheckedIOException("保存上传文件失败", e);
+        }
+        log.info("已保存上传标注文件: {}（{} 条标注）", target.toAbsolutePath(), entries.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("storedFile", target.toAbsolutePath().toString());
+        result.put("entryCount", entries.size());
+        result.put("originalName", file.getOriginalFilename());
+        return result;
+    }
+
     public BatchReport run(ProgressListener listener) {
         return run(listener, null);
+    }
+
+    public BatchReport run(ProgressListener listener, String sampleFileOverride) {
+        return run(listener, sampleFileOverride, null);
     }
 
     /**
      * 执行一次批量检测。
      *
-     * @param listener         进度回调，可为 null
-     * @param sampleFileOverride 临时指定样本文件（相对仓库根目录或绝对路径），为 null 时使用配置
+     * @param listener                进度回调，可为 null
+     * @param sampleFileOverride      临时指定样本文件（相对仓库根目录或绝对路径），为 null 时使用配置
+     * @param groundTruthFileOverride 临时指定人工标注基准文件（前端上传后传入），为 null 时使用配置
      */
-    public BatchReport run(ProgressListener listener, String sampleFileOverride) {
+    public BatchReport run(ProgressListener listener, String sampleFileOverride, String groundTruthFileOverride) {
         ProgressListener progress = listener != null ? listener : new ProgressListener() {
         };
         if (!running.compareAndSet(false, true)) {
@@ -136,7 +176,16 @@ public class BatchDetectionService {
             if (samples.isEmpty()) {
                 throw new IllegalStateException("样本文件内容为空: " + samplePath);
             }
-            Map<String, GroundTruthEntry> groundTruth = readGroundTruth();
+            boolean groundTruthProvided = groundTruthFileOverride != null && !groundTruthFileOverride.isBlank();
+            String groundTruthFile = groundTruthProvided ? groundTruthFileOverride : properties.getGroundTruthFile();
+            Path groundTruthPath = groundTruthProvided
+                    ? resolveRequiredFile(groundTruthFile, "人工标注文件")
+                    : resolveOptionalFile(groundTruthFile);
+            if (groundTruthPath == null) {
+                log.warn("未找到基准文件 {}，跳过评估指标计算", groundTruthFile);
+            }
+            Map<String, GroundTruthEntry> groundTruth = groundTruthPath == null
+                    ? Map.of() : readGroundTruth(groundTruthPath);
 
             int concurrency = Math.max(1, Math.min(properties.getConcurrency(), samples.size()));
             log.info("开始批量检测: {} 条样本, 并发 {}, 模型 {}", samples.size(), concurrency, detectionService.currentModel());
@@ -156,7 +205,8 @@ public class BatchDetectionService {
             Path latestFile = outputDir.resolve(LATEST_REPORT_NAME);
 
             BatchReport report = new BatchReport(Instant.now(), detectionService.currentModel(),
-                    samplePath.toString(), reportFile.toAbsolutePath().toString(), latestFile.toAbsolutePath().toString(),
+                    samplePath.toString(), groundTruth.isEmpty() ? null : groundTruthPath.toString(),
+                    reportFile.toAbsolutePath().toString(), latestFile.toAbsolutePath().toString(),
                     results.size(), hallucinationCount, errorCount, duration,
                     evaluate(results, groundTruth), results);
 
@@ -343,12 +393,7 @@ public class BatchDetectionService {
         return valid;
     }
 
-    private Map<String, GroundTruthEntry> readGroundTruth() {
-        Path path = resolveOptionalFile(properties.getGroundTruthFile());
-        if (path == null) {
-            log.warn("未找到基准文件 {}，跳过评估指标计算", properties.getGroundTruthFile());
-            return Map.of();
-        }
+    private Map<String, GroundTruthEntry> readGroundTruth(Path path) {
         try (InputStream in = Files.newInputStream(path)) {
             List<GroundTruthEntry> entries = objectMapper.readValue(in, new TypeReference<>() {
             });
@@ -363,6 +408,27 @@ public class BatchDetectionService {
             log.warn("读取基准文件失败 {}: {}，跳过评估指标计算", path, e.getMessage());
             return Map.of();
         }
+    }
+
+    /** 解析人工标注 JSON 数组（结构同 task4_ground_truth.json），要求至少一条同时带 id 与 is_hallucination */
+    private List<GroundTruthEntry> parseGroundTruth(byte[] bytes, String source) {
+        List<GroundTruthEntry> entries;
+        try {
+            entries = objectMapper.readValue(bytes, new TypeReference<>() {
+            });
+        } catch (IOException e) {
+            throw new IllegalArgumentException(source + "格式错误：需为与 task4_ground_truth.json 相同结构的 JSON 数组");
+        }
+        if (entries == null || entries.isEmpty()) {
+            throw new IllegalArgumentException(source + "内容为空，请检查文件");
+        }
+        List<GroundTruthEntry> valid = entries.stream()
+                .filter(entry -> entry.id() != null && !entry.id().isBlank() && entry.isHallucination() != null)
+                .toList();
+        if (valid.isEmpty()) {
+            throw new IllegalArgumentException(source + "中缺少有效条目：每条标注需包含 id 与 is_hallucination 字段");
+        }
+        return valid;
     }
 
     private Path resolveRequiredFile(String configured, String label) {

@@ -32,10 +32,11 @@ import java.util.Map;
 
 /**
  * 批量幻觉检测接口：
- * - POST     /api/detect/upload         上传待检测样本文件，校验后保存并返回路径
- * - GET/POST /api/detect/batch          同步执行批量检测，返回汇总报告
- * - GET      /api/detect/batch/stream   SSE 流式执行，实时推送检测进度
- * - GET      /api/detect/result/latest  下载最近一次批量检测生成的 Markdown 报告
+ * - POST     /api/detect/upload                 上传待检测样本文件，校验后保存并返回路径
+ * - POST     /api/detect/upload/ground-truth    上传人工标注（ground truth）文件，用于对比检测结果计算指标
+ * - GET/POST /api/detect/batch                  同步执行批量检测，返回汇总报告
+ * - GET      /api/detect/batch/stream           SSE 流式执行，实时推送检测进度
+ * - GET      /api/detect/result/latest          下载最近一次批量检测生成的 Markdown 报告
  */
 @RestController
 @RequestMapping("/api/detect")
@@ -57,15 +58,23 @@ public class DetectionController {
         return batchDetectionService.storeUploadedSamples(file);
     }
 
+    /** 上传人工标注（ground truth）文件（JSON 数组，结构同 task4_ground_truth.json），校验后保存并返回可用路径 */
+    @PostMapping(value = "/upload/ground-truth", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> uploadGroundTruth(@RequestParam("file") MultipartFile file) {
+        return batchDetectionService.storeUploadedGroundTruth(file);
+    }
+
     /** 同步批量检测：全部样本检测完成后返回汇总报告（Markdown 报告同时写入 output 目录） */
     @RequestMapping(value = "/batch", method = {RequestMethod.GET, RequestMethod.POST})
-    public BatchReport batch(@RequestParam(name = "sampleFile", required = false) String sampleFile) {
-        return batchDetectionService.run(null, sampleFile);
+    public BatchReport batch(@RequestParam(name = "sampleFile", required = false) String sampleFile,
+                             @RequestParam(name = "groundTruthFile", required = false) String groundTruthFile) {
+        return batchDetectionService.run(null, sampleFile, groundTruthFile);
     }
 
     /** 流式批量检测：SSE 实时推送每条样本的检测进度与最终汇总报告 */
     @GetMapping(value = "/batch/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<String> batchStream(@RequestParam(name = "sampleFile", required = false) String sampleFile) {
+    public Flux<String> batchStream(@RequestParam(name = "sampleFile", required = false) String sampleFile,
+                                    @RequestParam(name = "groundTruthFile", required = false) String groundTruthFile) {
         Sinks.Many<String> sink = Sinks.many().unicast().onBackpressureBuffer();
         Thread worker = new Thread(() -> {
             try {
@@ -85,7 +94,7 @@ public class DetectionController {
                         data.put("report", report);
                         emit(sink, data);
                     }
-                }, sampleFile);
+                }, sampleFile, groundTruthFile);
             } catch (Exception e) {
                 log.error("流式批量检测执行失败", e);
                 Map<String, Object> data = baseEvent("error");

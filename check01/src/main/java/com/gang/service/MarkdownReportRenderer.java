@@ -60,6 +60,9 @@ final class MarkdownReportRenderer {
             md.append("未提供人工标注基准文件，本次跳过指标计算。\n\n");
             return;
         }
+        if (report.groundTruthFile() != null) {
+            md.append("对比基准：`").append(safe(report.groundTruthFile())).append("`\n\n");
+        }
         md.append("| 指标 | 数值 |\n| --- | --- |\n");
         md.append("| 精确率 Precision | ").append(ratio(metrics.precision())).append(" |\n");
         md.append("| 召回率 Recall | ").append(ratio(metrics.recall())).append(" |\n");

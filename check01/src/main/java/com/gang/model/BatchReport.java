@@ -12,6 +12,7 @@ public record BatchReport(
         @JsonProperty("generated_at") Instant generatedAt,
         @JsonProperty("model") String model,
         @JsonProperty("sample_file") String sampleFile,
+        @JsonProperty("ground_truth_file") String groundTruthFile,
         @JsonProperty("report_file") String reportFile,
         @JsonProperty("latest_file") String latestFile,
         @JsonProperty("total") int total,

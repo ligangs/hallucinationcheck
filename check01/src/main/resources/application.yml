@@ -22,7 +22,7 @@ spring:
 # 批量幻觉检测配置
 hallucination:
   detect:
-    model: qwen                                 # 检测模型: qwen / deepseek
+    model: deepseek                                 # 检测模型: qwen / deepseek
     sample-file: task4_replies.json             # 待检测样本（相对仓库根目录或绝对路径）
     ground-truth-file: task4_ground_truth.json  # 人工标注基准，缺失时跳过指标计算
     output-dir: output                          # 结果文件输出目录（相对仓库根目录）

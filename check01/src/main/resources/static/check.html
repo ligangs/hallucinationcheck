@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>幻觉检测工具</title>
+    <title>客服回复幻觉检测</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.8.1/github-markdown.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.11.0/styles/github.min.css">
     <style>
@@ -54,16 +54,20 @@
             color: #fff;
             padding: 12px 16px;
             border-radius: 12px 12px 2px 12px;
-            white-space: pre‑wrap;
-            word‑break: break‑word;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.6;
         }
         .msg-bubble-ai {
             max-width: 75%;
             background-color: #f7f8fa;
-            color: #a4a4a4;
+            color: #333;
             border-radius: 12px 12px 12px 2px;
-            padding:14px 18px;
-            word‑break: break‑word;
+            padding: 14px 18px;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.6;
         }
         .msg-bubble-ai .markdown-body {
             background: transparent !important;
@@ -93,6 +97,125 @@
             text-decoration: none;
             margin-left: auto;
         }
+        /* ===== 批量检测汇总报告 ===== */
+        .msg-bubble-ai.summary-report {
+            max-width: 100%;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e5e6eb;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            padding: 18px 20px;
+        }
+        .markdown-body.summary-report table.ov-table {
+            display: table;
+            width: 100%;
+            max-width: none;
+            min-width: 0;
+            table-layout: auto;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 0;
+            overflow: visible;
+        }
+        .markdown-body.summary-report table.ov-table td:nth-child(odd) {
+            color: #8c8c8c;
+            background-color: #fafbfc;
+        }
+        .markdown-body.summary-report table.ov-table td:nth-child(even) {
+            color: #333;
+            font-weight: 600;
+        }
+        .markdown-body.summary-report table.ov-table td.val-hall {
+            color: #cf1322;
+        }
+        .markdown-body.summary-report table.ov-table td.val-ok {
+            color: #389e0d;
+        }
+        .markdown-body.summary-report table.ov-table td.val-p0 {
+            color: #cf1322;
+        }
+        .markdown-body.summary-report table.ov-table td.val-p1 {
+            color: #d46b08;
+        }
+        .markdown-body.summary-report table.ov-table td.val-p2 {
+            color: #0958d9;
+        }
+        .markdown-body.summary-report .table-scroll {
+            overflow-x: auto;
+            margin: 6px 0 10px;
+            border: 1px solid #e5e6eb;
+            border-radius: 8px;
+        }
+        .markdown-body.summary-report table.rt-table {
+            display: table;
+            width: 100%;
+            max-width: none;
+            min-width: 720px;
+            table-layout: fixed;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin: 0;
+            overflow: visible;
+        }
+        .markdown-body.summary-report th,
+        .markdown-body.summary-report td {
+            padding: 7px 10px;
+            border: none;
+            border-bottom: 1px solid #e5e6eb;
+            border-right: 1px solid #f0f1f3;
+            text-align: left;
+            vertical-align: top;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.6;
+        }
+        .markdown-body.summary-report th:last-child,
+        .markdown-body.summary-report td:last-child {
+            border-right: none;
+        }
+        .markdown-body.summary-report tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .markdown-body.summary-report th {
+            background: #f7f8fa;
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+        }
+        .markdown-body.summary-report table.rt-table th:nth-child(1) { width: 64px; }
+        .markdown-body.summary-report table.rt-table th:nth-child(2) { width: 22%; }
+        .markdown-body.summary-report table.rt-table th:nth-child(3) { width: 76px; }
+        .markdown-body.summary-report table.rt-table th:nth-child(4) { width: 96px; }
+        .markdown-body.summary-report table.rt-table th:nth-child(5) { width: 64px; }
+        .markdown-body.summary-report tbody tr,
+        .markdown-body.summary-report tbody tr:nth-child(2n) {
+            background-color: transparent;
+        }
+        .markdown-body.summary-report tbody tr.row-hall {
+            background-color: #fff5f5;
+        }
+        .markdown-body.summary-report tbody tr.row-error {
+            background-color: #fafafa;
+        }
+        .markdown-body.summary-report table.rt-table td:nth-child(1) {
+            color: #8c8c8c;
+            font-family: Consolas, Menlo, monospace;
+        }
+        .markdown-body.summary-report table.rt-table td:nth-child(3) {
+            text-align: center;
+            color: #389e0d;
+        }
+        .markdown-body.summary-report table.rt-table tr.row-hall td:nth-child(3) {
+            color: #cf1322;
+            font-weight: 600;
+        }
+        .markdown-body.summary-report table.rt-table tr.row-error td:nth-child(3) {
+            color: #8c8c8c;
+            font-weight: 400;
+        }
+        .markdown-body.summary-report table.rt-table tr.risk-p0 td:nth-child(5) { color: #cf1322; font-weight: 600; }
+        .markdown-body.summary-report table.rt-table tr.risk-p1 td:nth-child(5) { color: #d46b08; font-weight: 600; }
+        .markdown-body.summary-report table.rt-table tr.risk-p2 td:nth-child(5) { color: #0958d9; font-weight: 600; }
         .modal-mask {
             display: none;
             position: fixed;
@@ -175,48 +298,86 @@
             border-radius:8px;
             cursor:pointer;
             font-size:15px;
-            white‑space: nowrap;
+            white-space: nowrap;
         }
         button:active {
             background-color:#0e5cc9;
         }
         button:disabled {
             background:#94bfff;
-            cursor:not‑allowed;
+            cursor:not-allowed;
         }
 
-        @media (max‑width: 768px) {
+        /* 大屏适配 */
+        @media (min-width: 1440px) {
+            .chat-wrap {
+                max-width: 1280px;
+            }
+            .chat-box {
+                min-height: 560px;
+                max-height: 72vh;
+            }
+        }
+        /* 小屏适配 */
+        @media (max-width: 768px) {
             body {
                 padding: 8px;
             }
             .chat-title {
-                font‑size: 18px;
-                margin‑bottom: 12px;
+                font-size: 18px;
+                margin-bottom: 12px;
             }
             .chat-box {
                 padding: 12px;
-                min‑height: 420px;
+                min-height: 420px;
+                max-height: 62vh;
             }
-            .msg‑bubble‑user,
-            .msg‑bubble‑ai {
-                max‑width: 88%;
+            .msg-bubble-user,
+            .msg-bubble-ai {
+                max-width: 88%;
             }
-            .input‑area {
+            .input-area {
                 gap: 6px;
             }
             #queryInput {
                 padding: 10px 12px;
-                font‑size: 14px;
+                font-size: 16px;
             }
             button {
                 padding: 10px 14px;
-                font‑size: 14px;
+                font-size: 14px;
             }
+            .batch-status {
+                font-size: 12px;
+            }
+            .result-link {
+                margin-left: 0;
+            }
+            .msg-bubble-ai.summary-report {
+                padding: 14px 12px;
+            }
+            .markdown-body.summary-report table.rt-table {
+                min-width: 560px;
+                font-size: 12px;
+            }
+            .markdown-body.summary-report table.ov-table {
+                font-size: 12px;
+            }
+            .markdown-body.summary-report table.rt-table th:nth-child(1) { width: 48px; }
+            .markdown-body.summary-report table.rt-table th:nth-child(3) { width: 60px; }
+            .markdown-body.summary-report table.rt-table th:nth-child(4) { width: 72px; }
+            .markdown-body.summary-report table.rt-table th:nth-child(5) { width: 52px; }
         }
-        @media (max‑width: 480px) {
-            .msg‑bubble‑user,
-            .msg‑bubble‑ai {
-                max‑width: 92%;
+        @media (max-width: 480px) {
+            .msg-bubble-user,
+            .msg-bubble-ai {
+                max-width: 92%;
+            }
+            .msg-bubble-ai.summary-report {
+                max-width: 100%;
+            }
+            .markdown-body.summary-report {
+                padding: 12px 10px;
             }
         }
     </style>
@@ -248,8 +409,8 @@
     </div>
     <div class="chat-box" id="chatBox"></div>
     <div class="input-area">
-        <input type="text" id="queryInput" placeholder="请输入你的问题..." />
-        <button id="sendBtn" onclick="sendMessage()">发送</button>
+        <input type="text" id="queryInput" placeholder="请输入单条replies..." />
+        <button id="sendBtn" onclick="sendMessage()">检测</button>
     </div>
 </div>
 
@@ -281,6 +442,66 @@
 
     function escapeHtml(str) {
         return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    }
+
+    // 解析单条检测输出（兼容中英文键名），成功时构建中文键值表格 Markdown
+    function buildSingleResultMarkdown(text) {
+        if (!text) return null;
+        const fields = {};
+        const keyMap = [
+            ["hall", ["是否幻觉", "is_hallucination"]],
+            ["type", ["幻觉类型", "hallucination_type"]],
+            ["risk", ["风险等级", "风险级别", "risk_level"]],
+            ["reason", ["判定依据", "原因", "reason"]]
+        ];
+        text.split(/\r?\n/).forEach(line => {
+            const idx = line.search(/[:：]/);
+            if (idx < 0) return;
+            const key = line.slice(0, idx).replace(/[\s*`#>"'\-.]/g, "").toLowerCase();
+            const val = line.slice(idx + 1).replace(/^[\s*`"']+/, "").replace(/[\s*`"',。;；]+$/, "").trim();
+            if (!key || !val) return;
+            keyMap.forEach(pair => {
+                if (!fields[pair[0]] && pair[1].some(k => key.endsWith(k.toLowerCase()))) fields[pair[0]] = val;
+            });
+        });
+        let hall = null;
+        const hallRaw = (fields.hall || "").toLowerCase();
+        if (hallRaw === "是" || hallRaw === "true") hall = "是";
+        else if (hallRaw === "否" || hallRaw === "false") hall = "否";
+        if (!hall) return null;
+        const cell = v => (v || "-").replace(/\|/g, "\\|").replace(/\n/g, " ");
+        return "#### 检测结果\n\n"
+            + "| 项目 | 内容 |\n| --- | --- |\n"
+            + `| 是否幻觉 | ${hall} |\n`
+            + `| 幻觉类型 | ${cell(fields.type)} |\n`
+            + `| 风险等级 | ${cell(fields.risk)} |\n`
+            + `| 判定依据 | ${cell(fields.reason)} |\n`;
+    }
+
+    // 单条检测卡片装饰：横向滚动容器、结论与风险着色
+    function decorateSingleResult(bubble) {
+        const table = bubble.querySelector("table");
+        if (!table) return;
+        const wrap = document.createElement("div");
+        wrap.className = "table-scroll";
+        table.parentNode.insertBefore(wrap, table);
+        wrap.appendChild(table);
+        table.classList.add("ov-table");
+        table.querySelectorAll("tbody tr").forEach(tr => {
+            const cells = tr.children;
+            if (cells.length < 2) return;
+            const label = cells[0].innerText.trim();
+            const td = cells[1];
+            const v = td.innerText.trim();
+            if (label === "是否幻觉") {
+                if (v === "是") td.classList.add("val-hall");
+                else if (v === "否") td.classList.add("val-ok");
+            } else if (label === "风险等级") {
+                if (v === "P0") td.classList.add("val-p0");
+                else if (v === "P1") td.classList.add("val-p1");
+                else if (v === "P2") td.classList.add("val-p2");
+            }
+        });
     }
 
     // 追加用户消息
@@ -324,8 +545,15 @@
 
         es.onerror = () => {
             es.close();
-            // ✅流全部接收完成，一次性完整渲染markdown，代码块/表格正常
-            aiDom.outerHTML = `<div class="msg-bubble-ai markdown-body">${renderMarkdown(fullMd)}</div>`;
+            // ✅流全部接收完成，一次性完整渲染markdown；检测结果优先渲染为中文键值卡片
+            const singleMd = buildSingleResultMarkdown(fullMd);
+            if (singleMd) {
+                aiDom.outerHTML = `<div class="msg-bubble-ai markdown-body summary-report">${renderMarkdown(singleMd)}</div>`;
+                const bubble = aiWrap.querySelector(".summary-report");
+                if (bubble) decorateSingleResult(bubble);
+            } else {
+                aiDom.outerHTML = `<div class="msg-bubble-ai markdown-body">${renderMarkdown(fullMd)}</div>`;
+            }
             sendBtn.disabled = false;
         };
     }
@@ -416,7 +644,8 @@
                 let verdict = "检测失败";
                 if (r.is_hallucination === true) verdict = "幻觉";
                 else if (r.is_hallucination === false) verdict = "正常";
-                status.innerText = `进度 ${data.completed}/${data.total}：${r.id} - ${verdict}`;
+                const percent = data.total ? Math.round(data.completed / data.total * 100) : 0;
+                status.innerText = `进度 ${data.completed}/${data.total}（${percent}%）：${r.id} - ${verdict}`;
             } else if (data.type === "done") {
                 batchFinished = true;
                 status.innerText = "批量检测完成，结果文件已生成";
@@ -443,15 +672,18 @@
     // 批量检测完成后，在聊天区追加汇总报告与逐条结果表格
     function appendBatchSummary(report){
         if(!report) return;
-        let md = "### 批量检测汇总\n\n";
-        md += `- 样本总数：${report.total}，检出幻觉：${report.hallucination_count}，调用失败：${report.error_count}\n`;
-        md += `- 模型：${report.model}，耗时：${(report.duration_ms / 1000).toFixed(1)} 秒\n`;
         const m = report.metrics;
-        if (m) {
-            md += `- 精确率：${fmtRatio(m.precision)}，召回率：${fmtRatio(m.recall)}，F1：${fmtRatio(m.f1)}，准确率：${fmtRatio(m.accuracy)}\n`;
-        }
-        md += `- 报告文件：\`${report.report_file}\`\n`;
+        let md = "### 批量检测汇总\n\n";
+        md += "| 检测概览 | 数值 | 检测指标 | 数值 |\n| --- | --- | --- | --- |\n";
+        md += `| 样本总数 | ${report.total} | 精确率 | ${m ? fmtRatio(m.precision) : "-"} |\n`;
+        md += `| 检出幻觉 | ${report.hallucination_count} | 召回率 | ${m ? fmtRatio(m.recall) : "-"} |\n`;
+        md += `| 调用失败 | ${report.error_count} | F1 | ${m ? fmtRatio(m.f1) : "-"} |\n`;
+        md += `| 检测模型 | ${report.model || "-"} | 准确率 | ${m ? fmtRatio(m.accuracy) : "-"} |\n`;
+        md += `| 总耗时 | ${((report.duration_ms || 0) / 1000).toFixed(1)} 秒 | | |\n`;
         md += "\n";
+        if (report.report_file) {
+            md += `报告文件：\`${report.report_file}\`\n\n`;
+        }
         md += "| ID | 用户提问 | 是否幻觉 | 类型 | 风险 | 判定依据 |\n| --- | --- | --- | --- | --- | --- |\n";
         (report.results || []).forEach(r => {
             let isHall = "-";
@@ -461,12 +693,46 @@
             const detail = (r.reason || r.error_message || "-").replace(/\|/g, "\\|").replace(/\n/g, " ");
             md += `| ${r.id} | ${question} | ${isHall} | ${r.hallucination_type || "-"} | ${r.risk_level || "-"} | ${detail} |\n`;
         });
+
         const box = document.getElementById("chatBox");
         const div = document.createElement("div");
         div.className = "msg-item ai-msg";
-        div.innerHTML = `<div class="msg-bubble-ai markdown-body">${renderMarkdown(md)}</div>`;
+        div.innerHTML = `<div class="msg-bubble-ai markdown-body summary-report">${renderMarkdown(md)}</div>`;
+        decorateSummaryTable(div);
         box.appendChild(div);
         scrollBottom();
+    }
+
+    // 汇总表格装饰：区分概览/结果表，包横向滚动容器，结果表执行幻觉/失败行高亮、风险与结论着色、长文本悬停提示
+    function decorateSummaryTable(root){
+        const tables = root.querySelectorAll("table");
+        if (!tables.length) return;
+        tables.forEach(table => {
+            const headTh = table.querySelector("thead th");
+            const isResult = !!headTh && headTh.innerText.trim() === "ID";
+            table.classList.add(isResult ? "rt-table" : "ov-table");
+            const wrap = document.createElement("div");
+            wrap.className = "table-scroll";
+            table.parentNode.insertBefore(wrap, table);
+            wrap.appendChild(table);
+            if (!isResult) return;
+            table.querySelectorAll("tbody tr").forEach(tr => {
+                const cells = tr.children;
+                if (cells.length < 6) return;
+                const verdict = cells[2].innerText.trim();
+                const risk = cells[4].innerText.trim();
+                if (verdict === "是") tr.classList.add("row-hall");
+                else if (verdict === "检测失败") tr.classList.add("row-error");
+                if (risk === "P0") tr.classList.add("risk-p0");
+                else if (risk === "P1") tr.classList.add("risk-p1");
+                else if (risk === "P2") tr.classList.add("risk-p2");
+                // 用户提问 / 判定依据列文本过长时，悬停可查看完整内容
+                [1, 5].forEach(i => {
+                    const td = cells[i];
+                    if (td && td.innerText.length > 40) td.title = td.innerText;
+                });
+            });
+        });
     }
 
     document.getElementById("queryInput").addEventListener("keydown",function(e){

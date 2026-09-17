@@ -10,9 +10,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 解析大模型返回的检测结果，兼容三种常见输出形式：
- * 1. 纯键值行（is_hallucination: true ...）；
- * 2. Markdown 装饰的键值行（**is_hallucination**: true ...）；
+ * 解析大模型返回的检测结果，兼容三种常见输出形式，键名支持中英文：
+ * 1. 纯键值行（是否幻觉: 是 / is_hallucination: true ...）；
+ * 2. Markdown 装饰的键值行（**是否幻觉**: 是 ...）；
  * 3. ```json 代码块包裹的 JSON。
  */
 final class DetectionResultParser {
@@ -26,16 +26,16 @@ final class DetectionResultParser {
     private static final Pattern JSON_OBJECT = Pattern.compile("\\{[^{}]*}", Pattern.DOTALL);
 
     private static final Pattern IS_HALLUCINATION_PATTERN = Pattern.compile(
-            "(?im)^[\\s>*#`'\"-]*is_hallucination[\\s*`'\"]*[:：]\\s*[`*\"']*(true|false|是|否)");
+            "(?im)^[\\s>*#`'\"-]*(?:is_hallucination|是否幻觉)[\\s*`'\"]*[:：]\\s*[`*\"']*(true|false|是|否)");
 
     private static final Pattern TYPE_PATTERN = Pattern.compile(
-            "(?im)^[\\s>*#`'\"-]*hallucination_type[\\s*`'\"]*[:：]\\s*[`*\"']*(.+)$");
+            "(?im)^[\\s>*#`'\"-]*(?:hallucination_type|幻觉类型)[\\s*`'\"]*[:：]\\s*[`*\"']*(.+)$");
 
     private static final Pattern RISK_PATTERN = Pattern.compile(
-            "(?im)^[\\s>*#`'\"-]*risk_level[\\s*`'\"]*[:：]\\s*[`*\"']*(p[0-2])");
+            "(?im)^[\\s>*#`'\"-]*(?:risk_level|风险等级|风险级别)[\\s*`'\"]*[:：]\\s*[`*\"']*(p[0-2])");
 
     private static final Pattern REASON_PATTERN = Pattern.compile(
-            "(?im)^[\\s>*#`'\"-]*reason[\\s*`'\"]*[:：]\\s*[`*\"']*(.+)$");
+            "(?im)^[\\s>*#`'\"-]*(?:reason|判定依据|原因)[\\s*`'\"]*[:：]\\s*[`*\"']*(.+)$");
 
     private static final Set<String> NULL_VALUES = Set.of(
             "", "-", "--", "无", "null", "none", "n/a", "na", "无幻觉", "非幻觉",
@@ -52,10 +52,10 @@ final class DetectionResultParser {
 
         JsonNode node = readJsonNode(raw);
         if (node != null) {
-            isHallucination = readBoolean(node, "is_hallucination", "isHallucination");
-            type = readText(node, "hallucination_type", "hallucinationType", "type");
-            risk = normalizeRisk(readText(node, "risk_level", "riskLevel"));
-            reason = readText(node, "reason");
+            isHallucination = readBoolean(node, "is_hallucination", "isHallucination", "是否幻觉");
+            type = readText(node, "hallucination_type", "hallucinationType", "type", "幻觉类型");
+            risk = normalizeRisk(readText(node, "risk_level", "riskLevel", "风险等级", "风险级别"));
+            reason = readText(node, "reason", "判定依据", "原因");
         }
         if (isHallucination == null) {
             isHallucination = readBoolean(raw);
@@ -89,7 +89,7 @@ final class DetectionResultParser {
             Matcher object = JSON_OBJECT.matcher(raw);
             while (object.find()) {
                 String text = object.group();
-                if (text.contains("is_hallucination") || text.contains("isHallucination")) {
+                if (text.contains("is_hallucination") || text.contains("isHallucination") || text.contains("是否幻觉")) {
                     candidate = text;
                     break;
                 }
@@ -167,7 +167,7 @@ final class DetectionResultParser {
         if (value == null) {
             return null;
         }
-        String cleaned = value.trim().replaceAll("[\\s*`\"',]+$", "").trim();
+        String cleaned = value.trim().replaceAll("[\\s*`\"',，。;；]+$", "").trim();
         if (cleaned.isEmpty() || NULL_VALUES.contains(cleaned)
                 || NULL_VALUES.contains(cleaned.toLowerCase(Locale.ROOT))) {
             return null;

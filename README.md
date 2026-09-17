@@ -62,11 +62,11 @@
 知识库内容：{knowledge_base}
 客服回复：{system_reply}
 
-【输出格式】
-is_hallucination: true/false
-hallucination_type: 对应二级子类
-risk_level: P0/P1/P2
-reason: 简要判定依据
+【输出格式】仅输出以下四行，不要输出其他内容：
+是否幻觉: 是/否
+幻觉类型: 对应二级子类（无幻觉时填「无」）
+风险等级: P0/P1/P2（无幻觉时填「无」）
+判定依据: 简要判定依据
 ```
 
 ### 3. 20 条样本逐条检测结果

@@ -35,7 +35,7 @@ import java.util.Map;
  * - POST     /api/detect/upload         上传待检测样本文件，校验后保存并返回路径
  * - GET/POST /api/detect/batch          同步执行批量检测，返回汇总报告
  * - GET      /api/detect/batch/stream   SSE 流式执行，实时推送检测进度
- * - GET      /api/detect/result/latest  下载最近一次批量检测的结果文件
+ * - GET      /api/detect/result/latest  下载最近一次批量检测生成的 Markdown 报告
  */
 @RestController
 @RequestMapping("/api/detect")
@@ -57,7 +57,7 @@ public class DetectionController {
         return batchDetectionService.storeUploadedSamples(file);
     }
 
-    /** 同步批量检测：全部样本检测完成后返回汇总报告（结果文件同时写入 output 目录） */
+    /** 同步批量检测：全部样本检测完成后返回汇总报告（Markdown 报告同时写入 output 目录） */
     @RequestMapping(value = "/batch", method = {RequestMethod.GET, RequestMethod.POST})
     public BatchReport batch(@RequestParam(name = "sampleFile", required = false) String sampleFile) {
         return batchDetectionService.run(null, sampleFile);
@@ -100,7 +100,7 @@ public class DetectionController {
         return sink.asFlux();
     }
 
-    /** 下载最近一次批量检测生成的结果文件 */
+    /** 下载最近一次批量检测生成的 Markdown 报告 */
     @GetMapping("/result/latest")
     public ResponseEntity<Resource> latestResult() {
         Path latest = batchDetectionService.latestReportFile();
@@ -109,7 +109,7 @@ public class DetectionController {
         }
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + latest.getFileName() + "\"")
-                .contentType(MediaType.APPLICATION_JSON)
+                .contentType(MediaType.parseMediaType("text/markdown;charset=UTF-8"))
                 .body(new FileSystemResource(latest));
     }
 

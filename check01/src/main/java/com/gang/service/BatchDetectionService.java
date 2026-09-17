@@ -15,6 +15,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 批量幻觉检测：读取样本文件 -> 并发调用大模型逐条检测 -> 对比人工标注计算指标 -> 输出结果文件。
+ * 批量幻觉检测：读取样本文件 -> 并发调用大模型逐条检测 -> 对比人工标注计算指标 -> 输出 Markdown 报告。
  */
 @Service
 public class BatchDetectionService {
@@ -43,7 +44,7 @@ public class BatchDetectionService {
     private static final Logger log = LoggerFactory.getLogger(BatchDetectionService.class);
 
     private static final DateTimeFormatter FILE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-    private static final String LATEST_FILE_NAME = "detection_result_latest.json";
+    private static final String LATEST_REPORT_NAME = "detection_result_latest.md";
 
     private final HallucinationDetectionService detectionService;
     private final DetectProperties properties;
@@ -71,7 +72,7 @@ public class BatchDetectionService {
         this.objectMapper = objectMapper;
     }
 
-    /** 最近一次批量检测生成的结果文件 */
+    /** 最近一次批量检测生成的 Markdown 报告文件 */
     public Path latestReportFile() {
         return latestReportFile;
     }
@@ -150,16 +151,18 @@ public class BatchDetectionService {
 
             Path outputDir = resolveOutputDir(properties.getOutputDir());
             Files.createDirectories(outputDir);
-            Path reportFile = outputDir.resolve("detection_result_" + LocalDateTime.now().format(FILE_TIMESTAMP) + ".json");
-            Path latestFile = outputDir.resolve(LATEST_FILE_NAME);
+            String timestamp = LocalDateTime.now().format(FILE_TIMESTAMP);
+            Path reportFile = outputDir.resolve("detection_result_" + timestamp + ".md");
+            Path latestFile = outputDir.resolve(LATEST_REPORT_NAME);
 
             BatchReport report = new BatchReport(Instant.now(), detectionService.currentModel(),
                     samplePath.toString(), reportFile.toAbsolutePath().toString(), latestFile.toAbsolutePath().toString(),
                     results.size(), hallucinationCount, errorCount, duration,
                     evaluate(results, groundTruth), results);
 
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(reportFile.toFile(), report);
-            objectMapper.writerWithDefaultPrettyPrinter().writeValue(latestFile.toFile(), report);
+            String markdown = MarkdownReportRenderer.render(report);
+            Files.writeString(reportFile, markdown, StandardCharsets.UTF_8);
+            Files.writeString(latestFile, markdown, StandardCharsets.UTF_8);
             latestReportFile = latestFile;
 
             logSummary(report);
@@ -430,8 +433,8 @@ public class BatchDetectionService {
         } else {
             log.info("未提供基准文件，跳过指标计算");
         }
-        log.info("结果文件: {}", report.outputFile());
-        log.info("最新结果文件: {}", report.latestFile());
+        log.info("报告文件: {}", report.reportFile());
+        log.info("最新报告文件: {}", report.latestFile());
     }
 
     private static String formatRatio(Double value) {

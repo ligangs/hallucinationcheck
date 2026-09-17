@@ -6,13 +6,13 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * 批量检测汇总报告，同时也是结果输出文件的根结构。
+ * 批量检测汇总报告（用于接口返回与 Markdown 报告渲染）。
  */
 public record BatchReport(
         @JsonProperty("generated_at") Instant generatedAt,
         @JsonProperty("model") String model,
         @JsonProperty("sample_file") String sampleFile,
-        @JsonProperty("output_file") String outputFile,
+        @JsonProperty("report_file") String reportFile,
         @JsonProperty("latest_file") String latestFile,
         @JsonProperty("total") int total,
         @JsonProperty("hallucination_count") long hallucinationCount,

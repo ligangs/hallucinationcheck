@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 public record DetectionResult(
         @JsonProperty("id") String id,
+        @JsonProperty("user_question") String userQuestion,
         @JsonProperty("is_hallucination") Boolean isHallucination,
         @JsonProperty("hallucination_type") String hallucinationType,
         @JsonProperty("risk_level") String riskLevel,
@@ -19,14 +20,15 @@ public record DetectionResult(
     public static final String STATUS_SUCCESS = "SUCCESS";
     public static final String STATUS_ERROR = "ERROR";
 
-    public static DetectionResult success(String id, boolean isHallucination, String hallucinationType,
-                                          String riskLevel, String reason, long elapsedMs, String rawResponse) {
-        return new DetectionResult(id, isHallucination, hallucinationType, riskLevel, reason,
+    public static DetectionResult success(String id, String userQuestion, boolean isHallucination,
+                                          String hallucinationType, String riskLevel, String reason,
+                                          long elapsedMs, String rawResponse) {
+        return new DetectionResult(id, userQuestion, isHallucination, hallucinationType, riskLevel, reason,
                 STATUS_SUCCESS, elapsedMs, null, rawResponse);
     }
 
-    public static DetectionResult error(String id, long elapsedMs, String errorMessage, String rawResponse) {
-        return new DetectionResult(id, null, null, null, null,
+    public static DetectionResult error(String id, String userQuestion, long elapsedMs, String errorMessage, String rawResponse) {
+        return new DetectionResult(id, userQuestion, null, null, null, null,
                 STATUS_ERROR, elapsedMs, errorMessage, rawResponse);
     }
 }

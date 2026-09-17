@@ -41,9 +41,9 @@ final class DetectionResultParser {
             "", "-", "--", "无", "null", "none", "n/a", "na", "无幻觉", "非幻觉",
             "不存在", "不适用", "对应二级子类", "二级子类");
 
-    static DetectionResult parse(String id, String raw, long elapsedMs) {
+    static DetectionResult parse(String id, String userQuestion, String raw, long elapsedMs) {
         if (raw == null || raw.isBlank()) {
-            return DetectionResult.error(id, elapsedMs, "模型返回内容为空", raw);
+            return DetectionResult.error(id, userQuestion, elapsedMs, "模型返回内容为空", raw);
         }
         Boolean isHallucination = null;
         String type = null;
@@ -71,13 +71,13 @@ final class DetectionResultParser {
         }
 
         if (isHallucination == null) {
-            return DetectionResult.error(id, elapsedMs, "无法解析 is_hallucination 字段", raw);
+            return DetectionResult.error(id, userQuestion, elapsedMs, "无法解析 is_hallucination 字段", raw);
         }
         if (!isHallucination) {
             type = null;
             risk = null;
         }
-        return DetectionResult.success(id, isHallucination, type, risk, reason, elapsedMs, raw);
+        return DetectionResult.success(id, userQuestion, isHallucination, type, risk, reason, elapsedMs, raw);
     }
 
     private static JsonNode readJsonNode(String raw) {

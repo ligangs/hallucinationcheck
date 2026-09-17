@@ -227,7 +227,7 @@
     <div class="batch-bar">
         <button id="batchBtn" onclick="openBatchModal()">批量检测</button>
         <span class="batch-status" id="batchStatus">点击「批量检测」可上传待检查数据，未上传则检测默认样本 task4_replies.json</span>
-        <a class="result-link" href="/api/detect/result/latest">下载最新结果文件</a>
+        <a class="result-link" href="/api/detect/result/latest">下载报告(.md)</a>
         <input type="file" id="batchFile" accept=".json,application/json" style="display:none" onchange="onBatchFileChange()">
     </div>
 
@@ -450,14 +450,16 @@
         if (m) {
             md += `- 精确率：${fmtRatio(m.precision)}，召回率：${fmtRatio(m.recall)}，F1：${fmtRatio(m.f1)}，准确率：${fmtRatio(m.accuracy)}\n`;
         }
-        md += `- 结果文件：\`${report.output_file}\`\n\n`;
-        md += "| ID | 是否幻觉 | 类型 | 风险 | 判定依据 |\n| --- | --- | --- | --- | --- |\n";
+        md += `- 报告文件：\`${report.report_file}\`\n`;
+        md += "\n";
+        md += "| ID | 用户提问 | 是否幻觉 | 类型 | 风险 | 判定依据 |\n| --- | --- | --- | --- | --- | --- |\n";
         (report.results || []).forEach(r => {
             let isHall = "-";
             if (r.is_hallucination === true) isHall = "是";
             else if (r.is_hallucination === false) isHall = "否";
+            const question = (r.user_question || "-").replace(/\|/g, "\\|").replace(/\n/g, " ");
             const detail = (r.reason || r.error_message || "-").replace(/\|/g, "\\|").replace(/\n/g, " ");
-            md += `| ${r.id} | ${isHall} | ${r.hallucination_type || "-"} | ${r.risk_level || "-"} | ${detail} |\n`;
+            md += `| ${r.id} | ${question} | ${isHall} | ${r.hallucination_type || "-"} | ${r.risk_level || "-"} | ${detail} |\n`;
         });
         const box = document.getElementById("chatBox");
         const div = document.createElement("div");

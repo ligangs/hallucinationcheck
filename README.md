@@ -226,10 +226,10 @@ reason: 简要判定依据
 | `POST /api/detect/upload` | 上传待检测样本文件（form-data，字段名 `file`），校验后保存并返回路径 |
 | `GET/POST /api/detect/batch` | 同步执行批量检测，返回汇总报告 JSON，可用 `sampleFile` 参数指定样本文件 |
 | `GET /api/detect/batch/stream` | SSE 流式执行，实时推送逐条样本检测进度，可用 `sampleFile` 参数指定样本文件 |
-| `GET /api/detect/result/latest` | 下载最近一次批量检测的结果文件 |
+| `GET /api/detect/result/latest` | 下载最近一次批量检测生成的 Markdown 报告 |
 
 - 点击「批量检测」先弹出上传提醒弹窗：可选择待检查数据文件（与 `task4_replies.json` 相同结构的 JSON 数组），选择后点击「上传并检测」基于该文件执行流式检测；未选择文件时点击「检测默认文件」直接检测默认样本；
 - 上传的样本文件保存于 `output/uploads/`（文件名带时间戳），可通过 `GET /api/detect/batch/stream?sampleFile=<storedFile>` 重复执行检测；
 - 前端「批量检测」按钮：一键触发流式批量检测，实时展示进度，完成后在对话区渲染汇总指标与逐条判定表格；
-- 结果文件输出至仓库根目录 `output/`：`detection_result_<时间戳>.json` 与 `detection_result_latest.json`，包含逐条检测结果、混淆矩阵与精确率/召回率/F1/准确率；
+- 结果仅以 Markdown 报告输出至仓库根目录 `output/`：`detection_result_<时间戳>.md` 与 `detection_result_latest.md`，含检测概览、评估指标（混淆矩阵、精确率/召回率/F1/准确率）与逐条判定表格（含「用户提问」列），可直接阅读或交付；
 - 检测配置位于 `application.yml` 的 `hallucination.detect` 节点：可切换模型（qwen/deepseek）、调整并发数/重试次数、自定义样本文件与输出目录；上传文件大小上限 10MB（`spring.servlet.multipart`）。

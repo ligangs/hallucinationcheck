@@ -63,10 +63,10 @@ public class HallucinationDetectionService {
         try {
             String prompt = buildPrompt(sample);
             raw = selectClient().prompt(new Prompt(List.of(new UserMessage(prompt)))).call().content();
-            return DetectionResultParser.parse(sample.id(), raw, System.currentTimeMillis() - start);
+            return DetectionResultParser.parse(sample.id(), sample.userQuestion(), raw, System.currentTimeMillis() - start);
         } catch (Exception e) {
             log.warn("样本 {} 检测调用异常: {}", sample.id(), e.getMessage());
-            return DetectionResult.error(sample.id(), System.currentTimeMillis() - start, e.getMessage(), raw);
+            return DetectionResult.error(sample.id(), sample.userQuestion(), System.currentTimeMillis() - start, e.getMessage(), raw);
         }
     }
 

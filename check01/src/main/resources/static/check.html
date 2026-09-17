@@ -72,6 +72,27 @@
         .loading-text {
             color:#888;
         }
+        .batch-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+        .batch-bar button {
+            padding: 8px 16px;
+            font-size: 14px;
+        }
+        .batch-status {
+            color: #666;
+            font-size: 13px;
+        }
+        .result-link {
+            color: #1677ff;
+            font-size: 13px;
+            text-decoration: none;
+            margin-left: auto;
+        }
         .input-area {
             display: flex;
             gap:8px;
@@ -144,6 +165,11 @@
 <body>
 <div class="chat-wrap">
     <div class="chat-title">幻觉检测工具</div>
+    <div class="batch-bar">
+        <button id="batchBtn" onclick="runBatch()">批量检测</button>
+        <span class="batch-status" id="batchStatus">点击按钮对全部样本执行批量检测，结果将写入 output 目录</span>
+        <a class="result-link" href="/api/detect/result/latest">下载最新结果文件</a>
+    </div>
     <div class="chat-box" id="chatBox"></div>
     <div class="input-area">
         <input type="text" id="queryInput" placeholder="请输入你的问题..." />
@@ -226,6 +252,79 @@
             aiDom.outerHTML = `<div class="msg-bubble-ai markdown-body">${renderMarkdown(fullMd)}</div>`;
             sendBtn.disabled = false;
         };
+    }
+
+    // ===== 批量检测 =====
+    let batchRunning = false;
+    let batchFinished = false;
+
+    function runBatch(){
+        if(batchRunning) return;
+        batchRunning = true;
+        batchFinished = false;
+        const btn = document.getElementById("batchBtn");
+        const status = document.getElementById("batchStatus");
+        btn.disabled = true;
+        status.innerText = "批量检测启动中...";
+
+        const es = new EventSource("/api/detect/batch/stream");
+        es.onmessage = (event) => {
+            let data;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            if (data.type === "progress") {
+                const r = data.result || {};
+                let verdict = "检测失败";
+                if (r.is_hallucination === true) verdict = "幻觉";
+                else if (r.is_hallucination === false) verdict = "正常";
+                status.innerText = `进度 ${data.completed}/${data.total}：${r.id} - ${verdict}`;
+            } else if (data.type === "done") {
+                batchFinished = true;
+                status.innerText = "批量检测完成，结果文件已生成";
+                appendBatchSummary(data.report);
+            } else if (data.type === "error") {
+                batchFinished = true;
+                status.innerText = "批量检测失败：" + data.message;
+            }
+        };
+        es.onerror = () => {
+            es.close();
+            batchRunning = false;
+            btn.disabled = false;
+            if (!batchFinished) {
+                status.innerText = "批量检测中断：与服务器的连接已关闭";
+            }
+        };
+    }
+
+    function fmtRatio(value){
+        return value == null ? "-" : (value * 100).toFixed(2) + "%";
+    }
+
+    // 批量检测完成后，在聊天区追加汇总报告与逐条结果表格
+    function appendBatchSummary(report){
+        if(!report) return;
+        let md = "### 批量检测汇总\n\n";
+        md += `- 样本总数：${report.total}，检出幻觉：${report.hallucination_count}，调用失败：${report.error_count}\n`;
+        md += `- 模型：${report.model}，耗时：${(report.duration_ms / 1000).toFixed(1)} 秒\n`;
+        const m = report.metrics;
+        if (m) {
+            md += `- 精确率：${fmtRatio(m.precision)}，召回率：${fmtRatio(m.recall)}，F1：${fmtRatio(m.f1)}，准确率：${fmtRatio(m.accuracy)}\n`;
+        }
+        md += `- 结果文件：\`${report.output_file}\`\n\n`;
+        md += "| ID | 是否幻觉 | 类型 | 风险 | 判定依据 |\n| --- | --- | --- | --- | --- |\n";
+        (report.results || []).forEach(r => {
+            let isHall = "-";
+            if (r.is_hallucination === true) isHall = "是";
+            else if (r.is_hallucination === false) isHall = "否";
+            const detail = (r.reason || r.error_message || "-").replace(/\|/g, "\\|").replace(/\n/g, " ");
+            md += `| ${r.id} | ${isHall} | ${r.hallucination_type || "-"} | ${r.risk_level || "-"} | ${detail} |\n`;
+        });
+        const box = document.getElementById("chatBox");
+        const div = document.createElement("div");
+        div.className = "msg-item ai-msg";
+        div.innerHTML = `<div class="msg-bubble-ai markdown-body">${renderMarkdown(md)}</div>`;
+        box.appendChild(div);
+        scrollBottom();
     }
 
     document.getElementById("queryInput").addEventListener("keydown",function(e){

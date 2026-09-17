@@ -18,35 +18,35 @@ public class SaaLLMConfig {
     @Value("${spring.ai.dashscope.api-key}")
     private  String apiKey;
 
-    private String QWEN = "qwen-plus";
-    private String DEEPSEEK = "deepseek-v4-pro-0813";
+    public static final String QWEN_MODEL = "qwen-plus";
+    public static final String DEEPSEEK_MODEL = "deepseek-v4-pro-0813";
 
     @Bean("qwen")
     public ChatModel qwen() {
         return DashScopeChatModel.builder()
                 .dashScopeApi(DashScopeApi.builder().apiKey(apiKey).build())
-                .defaultOptions(DashScopeChatOptions.builder().withModel(QWEN).build()).build();
+                .defaultOptions(DashScopeChatOptions.builder().withModel(QWEN_MODEL).build()).build();
     }
 
     @Bean("deepseek")
     public ChatModel deepseek() {
         return DashScopeChatModel.builder()
                 .dashScopeApi(DashScopeApi.builder().apiKey(apiKey).build())
-                .defaultOptions(DashScopeChatOptions.builder().withModel(DEEPSEEK).build()).build();
+                .defaultOptions(DashScopeChatOptions.builder().withModel(DEEPSEEK_MODEL).build()).build();
     }
 
     @Bean("qwenChatClient")
     public ChatClient qwenChatClient(@Qualifier("qwen") ChatModel qwenChatModel) {
         return ChatClient
                 .builder(qwenChatModel)
-                .defaultOptions(ChatOptions.builder().model(QWEN).build()).build();
+                .defaultOptions(ChatOptions.builder().model(QWEN_MODEL).build()).build();
     }
 
     @Bean("deepseekChatClient")
     public ChatClient deepseekChatClient(@Qualifier("deepseek") ChatModel deepseekChatModel) {
         return ChatClient
                 .builder(deepseekChatModel)
-                .defaultOptions(ChatOptions.builder().model(DEEPSEEK).build()).build();
+                .defaultOptions(ChatOptions.builder().model(DEEPSEEK_MODEL).build()).build();
     }
 
 }

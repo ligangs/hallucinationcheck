@@ -216,3 +216,17 @@ reason: 简要判定依据
 - 支持接入 GPT、通义千问、豆包等主流 LLM API
 - 生产环境建议搭配知识库检索系统使用，实现端到端自动化检测
 - 针对信息遗漏类漏检问题，可补充「强制告知项规则」提升召回率
+
+## 六、批量检测接口与结果文件（已实现）
+
+应用启动后（默认端口 8001）可直接触发批量检测，检测结果同步写入结果文件：
+
+| 接口 | 说明 |
+| --- | --- |
+| `GET/POST /api/detect/batch` | 同步执行批量检测，返回汇总报告 JSON |
+| `GET /api/detect/batch/stream` | SSE 流式执行，实时推送逐条样本检测进度 |
+| `GET /api/detect/result/latest` | 下载最近一次批量检测的结果文件 |
+
+- 前端页面顶部新增「批量检测」按钮：一键触发流式批量检测，实时展示进度，完成后在对话区渲染汇总指标与逐条判定表格；
+- 结果文件输出至仓库根目录 `output/`：`detection_result_<时间戳>.json` 与 `detection_result_latest.json`，包含逐条检测结果、混淆矩阵与精确率/召回率/F1/准确率；
+- 检测配置位于 `application.yml` 的 `hallucination.detect` 节点：可切换模型（qwen/deepseek）、调整并发数/重试次数、自定义样本文件与输出目录。

@@ -87,6 +87,27 @@
             padding: 8px 16px;
             font-size: 14px;
         }
+        /* 批量检测按钮加载态：白圈旋转 + 禁用视觉 */
+        #batchBtn.is-loading {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #batchBtn.is-loading::before {
+            content: "";
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-top-color: #fff;
+            border-radius: 50%;
+            flex: none;
+            animation: batchSpin 0.8s linear infinite;
+        }
+        @keyframes batchSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
         .batch-status {
             color: #666;
             font-size: 13px;
@@ -384,7 +405,7 @@
 </head>
 <body>
 <div class="chat-wrap">
-    <div class="chat-title">幻觉检测工具</div>
+    <div class="chat-title">客服回复幻觉检测</div>
     <div class="batch-bar">
         <button id="batchBtn" onclick="openBatchModal()">批量检测</button>
         <span class="batch-status" id="batchStatus">点击「批量检测」可上传待检查数据，未上传则检测默认样本 task4_replies.json</span>
@@ -603,13 +624,20 @@
         runBatch();
     }
 
+    // 批量检测按钮加载状态切换
+    function setBatchLoading(on){
+        const btn = document.getElementById("batchBtn");
+        btn.disabled = on;
+        btn.classList.toggle("is-loading", on);
+        btn.innerText = on ? "检测中..." : "批量检测";
+    }
+
     async function runBatch(){
         if(batchRunning) return;
         batchRunning = true;
         batchFinished = false;
-        const btn = document.getElementById("batchBtn");
         const status = document.getElementById("batchStatus");
-        btn.disabled = true;
+        setBatchLoading(true);
 
         let streamUrl = "/api/detect/batch/stream";
         try {
@@ -630,7 +658,7 @@
             }
         } catch (e) {
             batchRunning = false;
-            btn.disabled = false;
+            setBatchLoading(false);
             status.innerText = "批量检测失败：" + e.message;
             return;
         }
@@ -648,17 +676,21 @@
                 status.innerText = `进度 ${data.completed}/${data.total}（${percent}%）：${r.id} - ${verdict}`;
             } else if (data.type === "done") {
                 batchFinished = true;
+                batchRunning = false;
+                setBatchLoading(false);
                 status.innerText = "批量检测完成，结果文件已生成";
                 appendBatchSummary(data.report);
             } else if (data.type === "error") {
                 batchFinished = true;
+                batchRunning = false;
+                setBatchLoading(false);
                 status.innerText = "批量检测失败：" + data.message;
             }
         };
         es.onerror = () => {
             es.close();
             batchRunning = false;
-            btn.disabled = false;
+            setBatchLoading(false);
             if (!batchFinished) {
                 status.innerText = "批量检测中断：与服务器的连接已关闭";
             }

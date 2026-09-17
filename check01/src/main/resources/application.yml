@@ -23,8 +23,8 @@ spring:
 hallucination:
   detect:
     model: deepseek                                 # 检测模型: qwen / deepseek
-    sample-file: task4_replies.json             # 待检测样本（相对仓库根目录或绝对路径）
-    ground-truth-file: task4_ground_truth.json  # 人工标注基准，缺失时跳过指标计算
+    sample-file: task4_replies.json             # 待检测样本：绝对路径/相对路径/classpath 内置资源名（默认资源位于 check01/src/main/resources）
+    ground-truth-file: task4_ground_truth.json  # 人工标注基准：同上；缺失时跳过指标计算
     output-dir: output                          # 结果文件输出目录（相对仓库根目录）
     concurrency: 4                              # 并发检测数
     max-retries: 1                              # 单条样本失败重试次数

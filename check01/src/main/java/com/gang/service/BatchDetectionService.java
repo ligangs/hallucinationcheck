@@ -9,6 +9,9 @@ import com.gang.model.GroundTruthEntry;
 import com.gang.model.TaskSample;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -158,7 +161,7 @@ public class BatchDetectionService {
      * 执行一次批量检测。
      *
      * @param listener                进度回调，可为 null
-     * @param sampleFileOverride      临时指定样本文件（相对仓库根目录或绝对路径），为 null 时使用配置
+     * @param sampleFileOverride      临时指定样本文件（绝对路径、相对仓库根目录路径或 classpath 资源名），为 null 时使用配置
      * @param groundTruthFileOverride 临时指定人工标注基准文件（前端上传后传入），为 null 时使用配置
      */
     public BatchReport run(ProgressListener listener, String sampleFileOverride, String groundTruthFileOverride) {
@@ -171,21 +174,19 @@ public class BatchDetectionService {
         try {
             String sampleFile = sampleFileOverride != null && !sampleFileOverride.isBlank()
                     ? sampleFileOverride : properties.getSampleFile();
-            Path samplePath = resolveRequiredFile(sampleFile, "样本文件");
-            List<TaskSample> samples = readSamples(samplePath);
+            ResolvedFile sampleSource = resolveFile(sampleFile, true, "样本文件");
+            List<TaskSample> samples = readSamples(sampleSource);
             if (samples.isEmpty()) {
-                throw new IllegalStateException("样本文件内容为空: " + samplePath);
+                throw new IllegalStateException("样本文件内容为空: " + sampleSource.display());
             }
             boolean groundTruthProvided = groundTruthFileOverride != null && !groundTruthFileOverride.isBlank();
             String groundTruthFile = groundTruthProvided ? groundTruthFileOverride : properties.getGroundTruthFile();
-            Path groundTruthPath = groundTruthProvided
-                    ? resolveRequiredFile(groundTruthFile, "人工标注文件")
-                    : resolveOptionalFile(groundTruthFile);
-            if (groundTruthPath == null) {
+            ResolvedFile groundTruthSource = resolveFile(groundTruthFile, groundTruthProvided, "人工标注文件");
+            if (groundTruthSource == null) {
                 log.warn("未找到基准文件 {}，跳过评估指标计算", groundTruthFile);
             }
-            Map<String, GroundTruthEntry> groundTruth = groundTruthPath == null
-                    ? Map.of() : readGroundTruth(groundTruthPath);
+            Map<String, GroundTruthEntry> groundTruth = groundTruthSource == null
+                    ? Map.of() : readGroundTruth(groundTruthSource);
 
             int concurrency = Math.max(1, Math.min(properties.getConcurrency(), samples.size()));
             log.info("开始批量检测: {} 条样本, 并发 {}, 模型 {}", samples.size(), concurrency, detectionService.currentModel());
@@ -205,7 +206,7 @@ public class BatchDetectionService {
             Path latestFile = outputDir.resolve(LATEST_REPORT_NAME);
 
             BatchReport report = new BatchReport(Instant.now(), detectionService.currentModel(),
-                    samplePath.toString(), groundTruth.isEmpty() ? null : groundTruthPath.toString(),
+                    sampleSource.display(), groundTruth.isEmpty() ? null : groundTruthSource.display(),
                     reportFile.toAbsolutePath().toString(), latestFile.toAbsolutePath().toString(),
                     results.size(), hallucinationCount, errorCount, duration,
                     evaluate(results, groundTruth), results);
@@ -359,11 +360,11 @@ public class BatchDetectionService {
         return Math.round(value * 10000.0) / 10000.0;
     }
 
-    private List<TaskSample> readSamples(Path path) {
-        try (InputStream in = Files.newInputStream(path)) {
-            return parseSamples(in.readAllBytes(), "样本文件 " + path);
+    private List<TaskSample> readSamples(ResolvedFile source) {
+        try (InputStream in = source.resource().getInputStream()) {
+            return parseSamples(in.readAllBytes(), "样本文件 " + source.display());
         } catch (IOException e) {
-            throw new IllegalStateException("读取样本文件失败: " + path, e);
+            throw new IllegalStateException("读取样本文件失败: " + source.display(), e);
         }
     }
 
@@ -393,8 +394,8 @@ public class BatchDetectionService {
         return valid;
     }
 
-    private Map<String, GroundTruthEntry> readGroundTruth(Path path) {
-        try (InputStream in = Files.newInputStream(path)) {
+    private Map<String, GroundTruthEntry> readGroundTruth(ResolvedFile source) {
+        try (InputStream in = source.resource().getInputStream()) {
             List<GroundTruthEntry> entries = objectMapper.readValue(in, new TypeReference<>() {
             });
             Map<String, GroundTruthEntry> map = new LinkedHashMap<>();
@@ -405,7 +406,7 @@ public class BatchDetectionService {
             }
             return map;
         } catch (IOException e) {
-            log.warn("读取基准文件失败 {}: {}，跳过评估指标计算", path, e.getMessage());
+            log.warn("读取基准文件失败 {}: {}，跳过评估指标计算", source.display(), e.getMessage());
             return Map.of();
         }
     }
@@ -431,22 +432,41 @@ public class BatchDetectionService {
         return valid;
     }
 
-    private Path resolveRequiredFile(String configured, String label) {
-        Path path = resolveOptionalFile(configured);
-        if (path == null) {
-            throw new IllegalStateException(label + "不存在: " + configured
-                    + "（可使用绝对路径，或在 application.yml 的 hallucination.detect 中配置路径）");
+    /**
+     * 解析配置的数据文件来源：优先文件系统（绝对路径或相对仓库根/工作目录），
+     * 未命中时回退 classpath 内置资源（check01/src/main/resources，打包后位于 jar 内）。
+     *
+     * @param required 为 true 时未找到直接抛异常；为 false 时返回 null
+     */
+    private ResolvedFile resolveFile(String configured, boolean required, String label) {
+        Path path = resolveFileSystemPath(configured);
+        if (path != null) {
+            return new ResolvedFile(path.toString(), new FileSystemResource(path));
         }
-        return path;
+        if (configured != null && !configured.isBlank()) {
+            ClassPathResource classpathResource = new ClassPathResource(configured.trim());
+            if (classpathResource.exists()) {
+                return new ResolvedFile("classpath:" + configured.trim(), classpathResource);
+            }
+        }
+        if (required) {
+            throw new IllegalStateException(label + "不存在: " + configured
+                    + "（可使用绝对路径、放入工作目录，或作为内置资源提供于 check01/src/main/resources）");
+        }
+        return null;
     }
 
-    private Path resolveOptionalFile(String configured) {
+    private Path resolveFileSystemPath(String configured) {
         for (Path candidate : candidatePaths(configured)) {
             if (Files.isRegularFile(candidate)) {
                 return candidate.toAbsolutePath().normalize();
             }
         }
         return null;
+    }
+
+    /** 数据文件来源：display 为展示/日志用名称（文件系统路径或 classpath:xxx），resource 用于读取内容 */
+    private record ResolvedFile(String display, Resource resource) {
     }
 
     private List<Path> candidatePaths(String configured) {

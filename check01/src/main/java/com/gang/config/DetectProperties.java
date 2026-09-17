@@ -13,10 +13,10 @@ public class DetectProperties {
     /** 检测所用模型：qwen 或 deepseek */
     private String model = "qwen";
 
-    /** 待检测样本文件（支持绝对路径，或相对仓库根目录的路径） */
+    /** 待检测样本文件（支持绝对路径、相对仓库根目录路径，或 classpath 内置资源名） */
     private String sampleFile = "task4_replies.json";
 
-    /** 人工标注基准文件，缺失时跳过评估指标计算 */
+    /** 人工标注基准文件（同上；缺失时跳过评估指标计算） */
     private String groundTruthFile = "task4_ground_truth.json";
 
     /** 检测结果输出目录（相对仓库根目录） */

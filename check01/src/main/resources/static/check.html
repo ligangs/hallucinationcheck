@@ -93,6 +93,65 @@
             text-decoration: none;
             margin-left: auto;
         }
+        .modal-mask {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-mask.show {
+            display: flex;
+        }
+        .modal-card {
+            width: 420px;
+            max-width: calc(100vw - 32px);
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+        }
+        .modal-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: #222;
+            margin-bottom: 10px;
+        }
+        .modal-desc {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.7;
+            margin-bottom: 14px;
+        }
+        .modal-file-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+        .modal-file-row button {
+            padding: 8px 14px;
+            font-size: 14px;
+        }
+        .modal-file-name {
+            font-size: 13px;
+            color: #888;
+            word-break: break-all;
+        }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .modal-actions .btn-ghost {
+            background: #f2f3f5;
+            color: #333;
+        }
+        .modal-actions .btn-ghost:active {
+            background: #e5e6eb;
+        }
         .input-area {
             display: flex;
             gap:8px;
@@ -166,9 +225,26 @@
 <div class="chat-wrap">
     <div class="chat-title">幻觉检测工具</div>
     <div class="batch-bar">
-        <button id="batchBtn" onclick="runBatch()">批量检测</button>
-        <span class="batch-status" id="batchStatus">点击按钮对全部样本执行批量检测，结果将写入 output 目录</span>
+        <button id="batchBtn" onclick="openBatchModal()">批量检测</button>
+        <span class="batch-status" id="batchStatus">点击「批量检测」可上传待检查数据，未上传则检测默认样本 task4_replies.json</span>
         <a class="result-link" href="/api/detect/result/latest">下载最新结果文件</a>
+        <input type="file" id="batchFile" accept=".json,application/json" style="display:none" onchange="onBatchFileChange()">
+    </div>
+
+    <!-- 批量检测弹窗：提醒上传待检查文件，未上传则检测默认文件 -->
+    <div class="modal-mask" id="batchModal">
+        <div class="modal-card">
+            <div class="modal-title">批量检测</div>
+            <div class="modal-desc">请选择待检查的数据文件（JSON 数组，结构同 task4_replies.json）。<br>未选择文件时，将检测默认文件 task4_replies.json。</div>
+            <div class="modal-file-row">
+                <button type="button" onclick="document.getElementById('batchFile').click()">选择文件</button>
+                <span class="modal-file-name" id="modalFileName">未选择文件</span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-ghost" onclick="closeBatchModal()">取消</button>
+                <button type="button" id="modalStartBtn" onclick="startBatchFromModal()">检测默认文件</button>
+            </div>
+        </div>
     </div>
     <div class="chat-box" id="chatBox"></div>
     <div class="input-area">
@@ -257,17 +333,81 @@
     // ===== 批量检测 =====
     let batchRunning = false;
     let batchFinished = false;
+    let batchUploadFile = null;
 
-    function runBatch(){
+    // 点击「批量检测」：弹出上传提醒（未上传则检测默认文件）
+    function openBatchModal(){
+        if (batchRunning) return;
+        batchUploadFile = null;
+        document.getElementById("batchFile").value = "";
+        updateModalFile();
+        document.getElementById("batchModal").classList.add("show");
+    }
+
+    function closeBatchModal(){
+        document.getElementById("batchModal").classList.remove("show");
+    }
+
+    // 已选择文件时按钮显示「上传并检测」，否则显示「检测默认文件」
+    function updateModalFile(){
+        const nameDom = document.getElementById("modalFileName");
+        const startBtn = document.getElementById("modalStartBtn");
+        if (batchUploadFile) {
+            nameDom.innerText = batchUploadFile.name + "（" + (batchUploadFile.size / 1024).toFixed(1) + " KB）";
+            nameDom.style.color = "#1677ff";
+            startBtn.innerText = "上传并检测";
+        } else {
+            nameDom.innerText = "未选择文件";
+            nameDom.style.color = "#888";
+            startBtn.innerText = "检测默认文件";
+        }
+    }
+
+    function onBatchFileChange(){
+        const input = document.getElementById("batchFile");
+        batchUploadFile = (input.files && input.files[0]) || null;
+        updateModalFile();
+    }
+
+    // 弹窗中确认：已选择文件则上传后检测，未选择则检测默认文件
+    function startBatchFromModal(){
+        closeBatchModal();
+        runBatch();
+    }
+
+    async function runBatch(){
         if(batchRunning) return;
         batchRunning = true;
         batchFinished = false;
         const btn = document.getElementById("batchBtn");
         const status = document.getElementById("batchStatus");
         btn.disabled = true;
-        status.innerText = "批量检测启动中...";
 
-        const es = new EventSource("/api/detect/batch/stream");
+        let streamUrl = "/api/detect/batch/stream";
+        try {
+            if (batchUploadFile) {
+                status.innerText = "正在上传待检测数据...";
+                const form = new FormData();
+                form.append("file", batchUploadFile, batchUploadFile.name);
+                const resp = await fetch("/api/detect/upload", { method: "POST", body: form });
+                let data = {};
+                try { data = await resp.json(); } catch (e) { }
+                if (!resp.ok) {
+                    throw new Error(data.message || ("上传失败，HTTP " + resp.status));
+                }
+                status.innerText = `已上传 ${data.sampleCount} 条样本，开始检测...`;
+                streamUrl += "?sampleFile=" + encodeURIComponent(data.storedFile);
+            } else {
+                status.innerText = "未上传文件，检测默认样本 task4_replies.json...";
+            }
+        } catch (e) {
+            batchRunning = false;
+            btn.disabled = false;
+            status.innerText = "批量检测失败：" + e.message;
+            return;
+        }
+
+        const es = new EventSource(streamUrl);
         es.onmessage = (event) => {
             let data;
             try { data = JSON.parse(event.data); } catch (e) { return; }
@@ -330,6 +470,11 @@
     document.getElementById("queryInput").addEventListener("keydown",function(e){
         if(e.key === "Enter") sendMessage();
     })
+
+    // 点击弹窗遮罩关闭弹窗
+    document.getElementById("batchModal").addEventListener("click", function(e){
+        if (e.target === this) closeBatchModal();
+    });
 </script>
 </body>
 </html>

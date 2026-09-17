@@ -10,6 +10,7 @@ import com.gang.model.TaskSample;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -72,6 +74,40 @@ public class BatchDetectionService {
     /** 最近一次批量检测生成的结果文件 */
     public Path latestReportFile() {
         return latestReportFile;
+    }
+
+    /**
+     * 保存并校验前端上传的待检测样本文件（结构同 task4_replies.json 的 JSON 数组）。
+     *
+     * @return 包含 storedFile（保存后的绝对路径）、sampleCount、originalName 的结果
+     */
+    public Map<String, Object> storeUploadedSamples(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("上传文件为空，请选择待检测数据文件");
+        }
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException("读取上传文件失败", e);
+        }
+        List<TaskSample> samples = parseSamples(bytes, "上传文件 " + file.getOriginalFilename());
+        Path uploadDir = resolveOutputDir(properties.getOutputDir()).resolve("uploads");
+        Path target;
+        try {
+            Files.createDirectories(uploadDir);
+            target = uploadDir.resolve("samples_" + LocalDateTime.now().format(FILE_TIMESTAMP)
+                    + "_" + UUID.randomUUID().toString().substring(0, 8) + ".json");
+            Files.write(target, bytes);
+        } catch (IOException e) {
+            throw new UncheckedIOException("保存上传文件失败", e);
+        }
+        log.info("已保存上传样本文件: {}（{} 条样本）", target.toAbsolutePath(), samples.size());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("storedFile", target.toAbsolutePath().toString());
+        result.put("sampleCount", samples.size());
+        result.put("originalName", file.getOriginalFilename());
+        return result;
     }
 
     public BatchReport run(ProgressListener listener) {
@@ -272,20 +308,36 @@ public class BatchDetectionService {
 
     private List<TaskSample> readSamples(Path path) {
         try (InputStream in = Files.newInputStream(path)) {
-            List<TaskSample> samples = objectMapper.readValue(in, new TypeReference<>() {
-            });
-            List<TaskSample> valid = new ArrayList<>(samples.size());
-            for (TaskSample sample : samples) {
-                if (sample.id() != null && !sample.id().isBlank()) {
-                    valid.add(sample);
-                } else {
-                    log.warn("忽略缺少 id 的样本: {}", sample);
-                }
-            }
-            return valid;
+            return parseSamples(in.readAllBytes(), "样本文件 " + path);
         } catch (IOException e) {
             throw new IllegalStateException("读取样本文件失败: " + path, e);
         }
+    }
+
+    /** 解析样本 JSON 数组（忽略缺少 id 的条目），本地样本文件与上传文件共用 */
+    private List<TaskSample> parseSamples(byte[] bytes, String source) {
+        List<TaskSample> samples;
+        try {
+            samples = objectMapper.readValue(bytes, new TypeReference<>() {
+            });
+        } catch (IOException e) {
+            throw new IllegalArgumentException(source + "格式错误：需为与 task4_replies.json 相同结构的 JSON 数组");
+        }
+        if (samples == null || samples.isEmpty()) {
+            throw new IllegalArgumentException(source + "内容为空，请检查文件");
+        }
+        List<TaskSample> valid = new ArrayList<>(samples.size());
+        for (TaskSample sample : samples) {
+            if (sample.id() != null && !sample.id().isBlank()) {
+                valid.add(sample);
+            } else {
+                log.warn("忽略缺少 id 的样本: {}", sample);
+            }
+        }
+        if (valid.isEmpty()) {
+            throw new IllegalArgumentException(source + "中缺少 id 字段，请检查文件格式");
+        }
+        return valid;
     }
 
     private Map<String, GroundTruthEntry> readGroundTruth() {

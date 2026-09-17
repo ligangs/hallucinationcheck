@@ -15,10 +15,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -29,6 +32,7 @@ import java.util.Map;
 
 /**
  * 批量幻觉检测接口：
+ * - POST     /api/detect/upload         上传待检测样本文件，校验后保存并返回路径
  * - GET/POST /api/detect/batch          同步执行批量检测，返回汇总报告
  * - GET      /api/detect/batch/stream   SSE 流式执行，实时推送检测进度
  * - GET      /api/detect/result/latest  下载最近一次批量检测的结果文件
@@ -45,6 +49,12 @@ public class DetectionController {
     public DetectionController(BatchDetectionService batchDetectionService, ObjectMapper objectMapper) {
         this.batchDetectionService = batchDetectionService;
         this.objectMapper = objectMapper;
+    }
+
+    /** 上传待检测样本文件（JSON 数组，结构同 task4_replies.json），校验后保存并返回可用路径 */
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> upload(@RequestParam("file") MultipartFile file) {
+        return batchDetectionService.storeUploadedSamples(file);
     }
 
     /** 同步批量检测：全部样本检测完成后返回汇总报告（结果文件同时写入 output 目录） */
@@ -107,6 +117,18 @@ public class DetectionController {
     public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException e) {
         String message = e.getMessage() == null ? "请求处理失败" : e.getMessage();
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", message));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException e) {
+        String message = e.getMessage() == null ? "请求参数不合法" : e.getMessage();
+        return ResponseEntity.badRequest().body(Map.of("message", message));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, String>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(Map.of("message", "上传文件过大，请控制在 10MB 以内"));
     }
 
     private static Map<String, Object> baseEvent(String type) {
